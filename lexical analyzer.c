@@ -5,11 +5,11 @@
 #include <ctype.h>
 #include <string.h>
 
-#define BUFSIZE 255 // цифра из задания, а не презентации. отвечает за размер буфера
-#define MAXLEN BUFSIZE // макс. длина чего-либо. привязана к BUFSIZE для удобства
-#define TNUMLEN 100 // длина TNUM
+#define BUFSIZE 255 // buffer size
+#define MAXLEN BUFSIZE // max length of a word
+#define TNUMLEN 100 // TNUM length
 
-enum state { // состояния
+enum state { // states of the program
     H,
     ID,
     NUM,
@@ -18,101 +18,100 @@ enum state { // состояния
     DLM,
     ER,
     FIN,
-    AFTERBRACKET // состояние для проверки содержимого после скобки, т.к. знак комментария (* 
+    AFTERBRACKET // check comment content 
 };
 
-char buf[BUFSIZE]; /* для накопления символов лексемы */
-int c; /* очередной символ */
-int d; /* для формирования числового значения константы */
-int j; /* номер строки в таблице, где находится лексема, найденная функцией look */
+// temporary
+char buf[BUFSIZE]; // buffer of a word
+int c; // symbol to be processed
+int d; // constat
+int j; // string number
 
-//массивы
-// служ. слова
-char TW[][MAXLEN] = { "begin", /*из задания*/ "do", "while", "loop" /**/, "and", "or", "not", "end"};
+// service words
+char TW[][MAXLEN] = { "begin", "do", "while", "loop" , "and", "or", "not", "end"};
 int TWlen = sizeof(TW) / MAXLEN;
-// разделители
-char TD[][MAXLEN] = { /* комментарии */ "(*", "*)" /**/,"*", "+", "-", "/", ":=", "!=", "=", "<", ">", ";", "(", ")"}; 
+// delimeters
+char TD[][MAXLEN] = { "(*", "*)","*", "+", "-", "/", ":=", "!=", "=", "<", ">", ";", "(", ")"}; 
 int TDlen = sizeof(TD) / MAXLEN;
-// идентификаторы
+// identficators
 char TID[MAXLEN][BUFSIZE];
 int TIDlast = 0;
-// числа
+// numbers
 char TNUM[TNUMLEN];
 int TNUMlast = 0;
 
-int rowCount = 1; // номер строки на которой мы находимся
-int bufLast = 0; // индекс последнего свободного в buf
+int rowCount = 1; // current row
+int bufLast = 0; // index of free space in buf
 
-// функции
-
-void printLex(int arrID, int lineInArr) { // вывод < , >, сделана для удобства
+// functions
+void printLex(int arrID, int lineInArr) {
     printf("<%d,%d>", arrID, lineInArr);
 }
 
-void printError(char str[]) { // печать сообщения об ошибке, сделана для удобства
-    printf("\n-------ОШИБКА-------\n");
-    printf("Срока ошибки: %d\n", rowCount);
-    printf("Сообщение: %s!\n", str);
+void printError(char str[]) { // error message
+    printf("\n-------ERROR-------\n");
+    printf("ROW: %d\n", rowCount);
+    printf("MESSAGE: %s!\n", str);
     printf("--------------------");
 }
 
-void clear(void) { /* очистка буфера buf */
+void clear(void) { // clear buf
     for (int i = 0; i < BUFSIZE; i++)
         buf[i] = NULL;
-    bufLast = 0; // обнуляем индекс последнего свободного
+    bufLast = 0;
 }
 
-void add(void) { /* добавление символа с в конец буфера buf */
+void add(void) { // add symbol to bug
     buf[bufLast] = c;
     bufLast++;
     return;
 }
 
-int look(char arr[][BUFSIZE], int length) { /* поиск в таблице лексемы из buf; результат: номер строки таблицы либо 0 */
+int look(char arr[][BUFSIZE], int length) { // search word in the array. Result either 0 or index of the word
     for (int i = 0; i < length; i++) {
-        if (!strcmp(arr[i], buf)) // проверка схожести строк
-            return ++i; // индекс строки + 1
+        if (!strcmp(arr[i], buf)) // check if similiar
+            return ++i;
     }
-    return 0; // если не нашли
+    return 0; // not found
 }
 
-int putl() { /* запись в таблицу лексемы из buf, если ее там не было; результат:номер строки таблицы */
-    int tempLineNum; // индекс строки, которую нашли
-    if (tempLineNum = look(TID, TIDlast)) // если она не ноль
+int putl() { // write word to the array. result is the index of the word in the array
+    int tempLineNum; 
+    if (tempLineNum = look(TID, TIDlast))
         return tempLineNum;
-    for (int i = 0; buf[i] != NULL; i++)  // запись из buf до конца строки в ней
+    for (int i = 0; buf[i] != NULL; i++)
         TID[TIDlast][i] = buf[i];
     return ++TIDlast;
 }
 
-int putnum() { /* запись в TNUM константы из d, если ее там не было; результат: номер строки таблицы TNUM */
-    for (int i = 0; i < TNUMlast; i++) // своя функция look, т.к. массив TNUM - одномерный
-        if (d == TNUM[i]) // если найденый номер уже существует
+int putnum() { // write constatnt (d) in TNUM. result: index of the constant in array
+    for (int i = 0; i < TNUMlast; i++) // cant use look as the array is one-dimensional
+        if (d == TNUM[i])
             return ++i;
     TNUM[TNUMlast] = d;
     return ++TNUMlast;
 }
 
 void main() {
-    setlocale(LC_ALL, "Russian");
-    enum state TC; /* текущее состояние */
+    // setlocale(LC_ALL, "Russian");
+    enum state TC; // current state
     FILE* fp; // указатель на файл
     TC = H;
-    fp = fopen("prog.txt", "r"); // в файле"prog" находится текст исходной программы 
+    fp = fopen("prog.txt", "r"); // file of the program
     if (!fp) {
         printError("Файл не обнаружен!");
         return;
     }
     c = fgetc(fp);
-    // printf("%d  ", rowCount); // вывод номера строки
+    // printf("%d  ", rowCount); // show row number
     do {
         switch (TC) {
-        case H: // ожидание
+        case H: // wait state
             if (c == '\n') {
                 c = fgetc(fp);
-                rowCount++; // изменяём номер строки
-                // printf("\n%d  ", rowCount); // вывод номера строки
-                printf("\n"); // для отображения по строкам без номера строки
+                rowCount++; // change row number
+                // printf("\n%d  ", rowCount); // show row number
+                printf("\n");
                 break;
             }
             if (c == ' ')
@@ -146,7 +145,7 @@ void main() {
                 }
                 else TC = DLM;
             break;
-        case ID: // идентификатор
+        case ID: // identificator
             if (isalpha(c) || isdigit(c)) {
                 add();
                 c = fgetc(fp);
@@ -162,14 +161,14 @@ void main() {
                 TC = H;
             };
             break;
-        case NUM: // число
+        case NUM: // number
             if (isdigit(c)) {
                 d = d * 10 + (c - '0');
                 c = fgetc(fp);
             }
             else {
-                if (isalpha(c)) { // тут у нас в "c" след. символ, если он буква, то это идентификатор и надо выдать ошибку
-                    printError("Идентификатор начинается с цифры");
+                if (isalpha(c)) { // c is the next sumbol. if it is a number, show error
+                    printError("ID starts with letter!");
                     TC = ER;
                     break;
                 }
@@ -182,37 +181,37 @@ void main() {
                 c = fgetc(fp);
                 if (c == '*') {
                     c = fgetc(fp);
-                    if (c == ')') { // встретили *)
+                    if (c == ')') {
                         TC = H;
                         c = fgetc(fp);
                         break;
                     }
-                    else  if (c == EOF) { // если комментарий не закрыт
+                    else  if (c == EOF) {
                         TC = ER;
-                        printError("Комментарий не был закрыт");
+                        printError("Comment section was not closed");
                         break;
                     }
                 }
-                else  if (c == EOF) { // если комментарий не закрыт
+                else  if (c == EOF) {
                     TC = ER;
-                    printError("Комментарий не был закрыт");
+                    printError("Comment section was not closed");
                     break;
                 }
             }
             break;
-        case ASS: // присвоение
-            if (c != '=') { // проверяем является ли это знаком присвоения, а не просто :
-                printError("Недопустимый символ");
+        case ASS: // assignment
+            if (c != '=') { // check if this is :=
+                printError("Unknown character!");
                 TC = ER;
                 break;
             }
-            add(); // сздаём ":=" в буфере и получаем номер строки его в TD
+            add(); // add :=
             printLex(2, look(TD, TDlen));
             c = fgetc(fp);
             TC = H;
             break;
-        case AFTERBRACKET: // То, что после скобок
-            if (c == '*') // если это коментарий
+        case AFTERBRACKET:
+            if (c == '*') // check if this is the comment
                 TC = COM;
             else {
                 j = look(TD, TDlen);
@@ -231,16 +230,16 @@ void main() {
             }
             else {
                 TC = ER;
-                printError("Недопустимый символ");
+                printError("Unknown character!");
             }
             break;
         }
-        /* конец switch */
+        
     } while (TC != FIN && TC != ER);
 
-    // вывод таблиц
+    // show table
     int i = 0;
-    printf("\nТаблицы:");
+    printf("\nArrays:");
     printf("\n(1) TW: ");
     for (; i < TWlen; i++) {
         printf("%s  ", TW[i]);
@@ -251,14 +250,14 @@ void main() {
     }
     printf("\n(3) TID: ");
     if (TIDlast == 0)
-        printf("Пусто");
+        printf("Empty");
     else 
         for (i = 0; i < TIDlast; i++) {
             printf("%s  ", TID[i]);
         }
     printf("\n(4) TNUM: ");
     if (TNUMlast == 0)
-        printf("Пусто");
+        printf("Empty");
     else 
         for (i = 0; i < TNUMlast; i++) {
             printf("%d  ", TNUM[i]);
@@ -266,9 +265,9 @@ void main() {
 
     // вывод результата анализа
     if (TC == ER)
-        printf("\nERROR!!!\n");
+        printf("\nERROR!\n");
     else
-        printf("\nO.K.!!!\n");
+        printf("\nValidated successfully\n");
 
     system("pause");
 }
